@@ -4,10 +4,12 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.default
 import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.enum
 import io.github.clmodding.cltools.mappings.MappingsUtils
 import io.github.clmodding.cltools.model.CraftLandiaVersionUtils
+import io.github.clmodding.cltools.model.remap.RemapLevel
 import io.github.clmodding.cltools.model.update.UpdateFile
 import io.github.clmodding.cltools.model.version.ClientVersion
 import io.github.clmodding.cltools.utils.RemapMappingFile
@@ -24,9 +26,9 @@ class LatestCommand : CliktCommand("Download the latest version of CraftLandia's
         "--macros", help = "Whether or not to also download the macros mod jar"
     ).flag(default = false)
 
-    private val remapJars: Boolean by option(
-        "--remap", help = "Whether or not to remap downloaded jars"
-    ).flag(default = false)
+    private val remapLevel: List<RemapLevel> by option(
+        "--remap", help = "Remap level downloaded jars"
+    ).enum<RemapLevel>().multiple()
 
     override fun run() {
 
@@ -44,28 +46,29 @@ class LatestCommand : CliktCommand("Download the latest version of CraftLandia's
             }
         }
 
-        if (remapJars) {
+        if (remapLevel.any { it > RemapLevel.NONE }) {
             val srcNamespace = "official"
             val destNamespace = "named"
 
-            booleanArrayOf(true, false).forEach { hasLandiaMappings ->
-                val mappingFile = MappingsUtils.getMergedCraftLandiaMappings(version, hasLandiaMappings)
-                var finalSuffix = destNamespace
+            remapLevel.flatMap { it.mappingsContainer }
+                .forEach { hasLandiaMappings ->
+                    val mappingFile = MappingsUtils.getMergedCraftLandiaMappings(version, hasLandiaMappings)
+                    var finalSuffix = destNamespace
 
-                // If we don't apply landia mappings, it means we are wanting to modify them on top of this file
-                // Thus we give it a different suffix (clientnamed vs named)
-                if (!hasLandiaMappings) finalSuffix = "client$finalSuffix"
+                    // If we don't apply landia mappings, it means we are wanting to modify them on top of this file
+                    // Thus we give it a different suffix (clientnamed vs named)
+                    if (!hasLandiaMappings) finalSuffix = "client$finalSuffix"
 
-                downloadedFiles.forEachIndexed { i, file ->
+                    downloadedFiles.forEachIndexed { i, file ->
 
-                    RemapUtils.remapJar(
-                        file,
-                        File(file.parentFile, file.nameWithoutExtension + "-$finalSuffix.jar"),
-                        RemapMappingFile(mappingFile, srcNamespace, destNamespace),
-                        downloadedFiles.take(i)
-                    )
+                        RemapUtils.remapJar(
+                            file,
+                            File(file.parentFile, file.nameWithoutExtension + "-$finalSuffix.jar"),
+                            RemapMappingFile(mappingFile, srcNamespace, destNamespace),
+                            downloadedFiles.take(i)
+                        )
+                    }
                 }
-            }
 
         }
     }
