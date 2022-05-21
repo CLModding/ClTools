@@ -81,7 +81,8 @@ object MappingsUtils {
                     .asSequence()
                     .mapIndexed { i, ns -> ns to (namespaces.getOrNull(i + 1) ?: namespaces.last()) }
                     .filter { it.first != it.second }
-                    .toMap())
+                    .toMap(),
+                true)
 
         )
 
